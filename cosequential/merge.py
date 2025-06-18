@@ -2,7 +2,7 @@ from cosequential.reader import PostingListReader
 
 
 def intersect(reader1: PostingListReader, reader2: PostingListReader, writer):
-    # writer: objeto com método write_id(int) que grava em arquivo
+    # writer: objeto com write_id(int) que grava em arquivo
     r1 = reader1.next()
     r2 = reader2.next()
     while r1 is not None and r2 is not None:
