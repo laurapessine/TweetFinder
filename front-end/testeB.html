@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Simulador de Árvore B* Estrela</title>
+<style>
+body {
+font-family: sans-serif;
+background: #f4f4f4;
+padding: 20px;
+}
+h1 {
+text-align: center;
+}
+.controls {
+text-align: center;
+margin-bottom: 20px;
+}
+input, button {
+padding: 10px;
+margin: 5px;
+font-size: 16px;
+}
+#tree {
+display: flex;
+flex-direction: column;
+align-items: center;
+}
+.node {
+border: 1px solid #333;
+border-radius: 5px;
+padding: 5px 10px;
+margin: 5px;
+background: #fff;
+display: inline-block;
+}
+.level {
+display: flex;
+justify-content: center;
+margin: 10px 0;
+}
+</style>
+</head>
+<body>
+<h1>Simulador de Árvore B* Estrela</h1>
+<div class="controls">
+<input type="number" id="keyInput" placeholder="Digite a chave">
+<button onclick="insert()">Inserir</button>
+<button onclick="remove()">Remover</button>
+</div>
+<div id="tree"></div>
+
+<script>
+class BStarTreeNode {
+constructor(isLeaf = true) {
+this.keys = [];
+this.children = [];
+this.isLeaf = isLeaf;
+}
+}
+
+class BStarTree {
+constructor(t = 3) {
+this.root = new BStarTreeNode();
+this.t = t; // ordem mínima
+}
+
+traverse(node = this.root, level = 0, result = []) {
+if (!result[level]) result[level] = [];
+result[level].push([...node.keys]);
+
+if (!node.isLeaf) {
+for (let child of node.children) {
+this.traverse(child, level + 1, result);
+}
+}
+return result;
+}
+
+insert(key) {
+const root = this.root;
+if (root.keys.length === 2 * this.t - 1) {
+const s = new BStarTreeNode(false);
+s.children.push(root);
+this.splitChild(s, 0);
+this.root = s;
+}
+this._insertNonFull(this.root, key);
+}
+
+_insertNonFull(node, key) {
+let i = node.keys.length - 1;
+if (node.isLeaf) {
+while (i >= 0 && key < node.keys[i]) {
+i--;
+}
+node.keys.splice(i + 1, 0, key);
+} else {
+while (i >= 0 && key < node.keys[i]) {
+i--;
+}
+i++;
+if (node.children[i].keys.length === 2 * this.t - 1) {
+this.splitChild(node, i);
+if (key > node.keys[i]) {
+i++;
+}
+}
+this._insertNonFull(node.children[i], key);
+}
+}
+
+splitChild(parent, i) {
+const t = this.t;
+const y = parent.children[i];
+const z = new BStarTreeNode(y.isLeaf);
+
+z.keys = y.keys.splice(t);
+const middle = y.keys.pop();
+parent.keys.splice(i, 0, middle);
+parent.children.splice(i + 1, 0, z);
+
+if (!y.isLeaf) {
+z.children = y.children.splice(t);
+}
+}
+
+remove(key) {
+this._remove(this.root, key);
+if (this.root.keys.length === 0 && !this.root.isLeaf) {
+this.root = this.root.children[0];
+}
+}
+
+_remove(node, key) {
+const idx = node.keys.findIndex(k => k >= key);
+
+if (idx !== -1 && node.keys[idx] === key) {
+if (node.isLeaf) {
+node.keys.splice(idx, 1);
+} else {
+const predNode = node.children[idx];
+if (predNode.keys.length >= this.t) {
+const predKey = this._getPredecessor(predNode);
+node.keys[idx] = predKey;
+this._remove(predNode, predKey);
+} else {
+const succNode = node.children[idx + 1];
+if (succNode.keys.length >= this.t) {
+const succKey = this._getSuccessor(succNode);
+node.keys[idx] = succKey;
+this._remove(succNode, succKey);
+} else {
+this._merge(node, idx);
+this._remove(predNode, key);
+}
+}
+}
+} else if (!node.isLeaf) {
+const child = node.children[idx !== -1 ? idx : node.children.length - 1];
+if (child.keys.length < this.t) {
+this._fill(node, idx);
+}
+this._remove(node.children[idx !== -1 ? idx : node.children.length - 1], key);
+}
+}
+
+_getPredecessor(node) {
+while (!node.isLeaf) {
+node = node.children[node.children.length - 1];
+}
+return node.keys[node.keys.length - 1];
+}
+
+_getSuccessor(node) {
+while (!node.isLeaf) {
+node = node.children[0];
+}
+return node.keys[0];
+}
+
+_merge(parent, idx) {
+const child = parent.children[idx];
+const sibling = parent.children[idx + 1];
+
+child.keys.push(parent.keys[idx], ...sibling.keys);
+if (!child.isLeaf) {
+child.children.push(...sibling.children);
+}
+
+parent.keys.splice(idx, 1);
+parent.children.splice(idx + 1, 1);
+}
+
+_fill(parent, idx) {
+const child = parent.children[idx];
+
+if (idx > 0 && parent.children[idx - 1].keys.length >= this.t) {
+const left = parent.children[idx - 1];
+child.keys.unshift(parent.keys[idx - 1]);
+parent.keys[idx - 1] = left.keys.pop();
+if (!left.isLeaf) {
+child.children.unshift(left.children.pop());
+}
+} else if (idx < parent.children.length - 1 && parent.children[idx + 1].keys.length >= this.t) {
+const right = parent.children[idx + 1];
+child.keys.push(parent.keys[idx]);
+parent.keys[idx] = right.keys.shift();
+if (!right.isLeaf) {
+child.children.push(right.children.shift());
+}
+} else {
+if (idx < parent.children.length - 1) {
+this._merge(parent, idx);
+} else {
+this._merge(parent, idx - 1);
+}
+}
+}
+}
+
+const tree = new BStarTree(2); // ordem mínima 3
+
+function renderTree() {
+const container = document.getElementById("tree");
+container.innerHTML = "";
+const levels = tree.traverse();
+levels.forEach(level => {
+const levelDiv = document.createElement("div");
+levelDiv.className = "level";
+level.forEach(node => {
+const nodeDiv = document.createElement("div");
+nodeDiv.className = "node";
+nodeDiv.textContent = node.join(" | ");
+levelDiv.appendChild(nodeDiv);
+});
+container.appendChild(levelDiv);
+});
+}
+
+function insert() {
+const input = document.getElementById("keyInput");
+const value = parseInt(input.value);
+if (!isNaN(value)) {
+tree.insert(value);
+input.value = "";
+renderTree();
+}
+}
+
+function remove() {
+const input = document.getElementById("keyInput");
+const value = parseInt(input.value);
+if (!isNaN(value)) {
+tree.remove(value);
+input.value = "";
+renderTree();
+}
+}
+
+renderTree();
+</script>
+</body>
+</html>
